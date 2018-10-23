@@ -37,6 +37,7 @@ def merge(args):
     with open('list_test_18000') as f:
         id_list = f.read().splitlines()
 
+    # Average all the probability maps from all folds
     all_prob = np.zeros((len(testloader), args.img_rows, args.img_cols), dtype=np.float32)
     for i in range(1, args.max_k_split+1):
         prob = np.load('prob-{}_{}_{}.npy'.format(args.split, i, args.max_k_split))
@@ -54,7 +55,7 @@ def merge(args):
 
         pred = np.where(pred < args.pred_thr, 0, 1)
 
-        if pred.sum() <= loader.lbl_thr:
+        if pred.sum() <= loader.lbl_thr: # Remove salt masks for sum of salts <= a threshold lbl_thr
             pred = np.zeros((args.img_rows, args.img_cols), dtype=np.uint8)
             rm = rm + 1
 
@@ -73,6 +74,7 @@ def merge(args):
     if not args.no_gt:
         print('Mean Average Precision: {:.5f}'.format(map.avg))
 
+    # Create final submission
     sub = pd.DataFrame.from_dict(pred_dict, orient='index')
     sub.index.names = ['id']
     sub.columns = ['rle_mask']
@@ -84,11 +86,11 @@ def merge(args):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Hyperparams')
-    parser.add_argument('--dataset', nargs='?', type=str, default='pascal', 
+    parser.add_argument('--dataset', nargs='?', type=str, default='tgs', 
                         help='Dataset to use [\'pascal, camvid, ade20k, cityscapes, etc\']')
-    parser.add_argument('--img_rows', nargs='?', type=int, default=256, 
+    parser.add_argument('--img_rows', nargs='?', type=int, default=101, 
                         help='Height of the input image')
-    parser.add_argument('--img_cols', nargs='?', type=int, default=256, 
+    parser.add_argument('--img_cols', nargs='?', type=int, default=101, 
                         help='Width of the input image')
 
     parser.add_argument('--img_norm', dest='img_norm', action='store_true', 

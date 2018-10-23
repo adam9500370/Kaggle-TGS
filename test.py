@@ -70,9 +70,9 @@ def test(args):
     map = AverageMeter()
     model.eval()
     with torch.no_grad():
-        for i, (images, labels, dp_labels, names) in tqdm(enumerate(testloader)):
+        for i, (images, labels, dp_labels, names) in tqdm(enumerate(testloader)): # Test Time Augmentation (TTA) with horizontal flip
             images = images.cuda()
-            images_flip = torch.from_numpy(np.copy(images.cpu().numpy()[:, :, :, ::-1])).cuda()#
+            images_flip = torch.from_numpy(np.copy(images.cpu().numpy()[:, :, :, ::-1])).cuda()
 
             outputs = model(images)
             outputs_flip = model(images_flip)
@@ -118,7 +118,7 @@ def test(args):
                 prob = np.copy(pred)
                 pred = np.where(pred < args.pred_thr, 0, 1)
 
-            for k in range(pred.shape[0]):
+            for k in range(pred.shape[0]): # Remove salt masks for sum of salts <= a threshold lbl_thr
                 if pred[k].sum() <= loader.lbl_thr:
                     pred[k] = np.zeros((args.img_rows, args.img_cols), dtype=np.uint8)
                     rm = rm + 1
@@ -162,12 +162,14 @@ def test(args):
         with open('list_test_18000') as f:
             id_list = f.read().splitlines()
 
+        # Save probability maps of test images for each fold
         all_prob = []
         for id in id_list:
             all_prob.append(np.expand_dims(prob_dict[id], axis=0))
         all_prob = np.concatenate(all_prob)
         np.save('prob-{}_{}_{}.npy'.format(args.split, args.num_k_split, args.max_k_split), all_prob)
 
+    # Create submission of the fold
     sub = pd.DataFrame.from_dict(pred_dict, orient='index')
     sub.index.names = ['id']
     sub.columns = ['rle_mask']
@@ -178,13 +180,13 @@ def test(args):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Hyperparams')
-    parser.add_argument('--model_path', nargs='?', type=str, default='pspnet_101_cityscapes.pth', 
+    parser.add_argument('--model_path', nargs='?', type=str, default='pspnet_tgs_best_1-10_model.pth', 
                         help='Path to the saved model')
-    parser.add_argument('--dataset', nargs='?', type=str, default='pascal', 
+    parser.add_argument('--dataset', nargs='?', type=str, default='tgs', 
                         help='Dataset to use [\'pascal, camvid, ade20k, cityscapes, etc\']')
-    parser.add_argument('--img_rows', nargs='?', type=int, default=256, 
+    parser.add_argument('--img_rows', nargs='?', type=int, default=101, 
                         help='Height of the input image')
-    parser.add_argument('--img_cols', nargs='?', type=int, default=256, 
+    parser.add_argument('--img_cols', nargs='?', type=int, default=101, 
                         help='Width of the input image')
 
     parser.add_argument('--img_norm', dest='img_norm', action='store_true', 
@@ -212,14 +214,14 @@ if __name__ == '__main__':
                         help='Disable DenseCRF based post-processing | False by default')
     parser.set_defaults(dcrf=False)
 
-    parser.add_argument('--seed', nargs='?', type=int, default=0, 
+    parser.add_argument('--seed', nargs='?', type=int, default=1234, 
                         help='Random seed')
-    parser.add_argument('--r_pad', nargs='?', type=int, default=0, 
+    parser.add_argument('--r_pad', nargs='?', type=int, default=14, 
                         help='Reflective center image padding')
 
-    parser.add_argument('--num_k_split', nargs='?', type=int, default=0, 
+    parser.add_argument('--num_k_split', nargs='?', type=int, default=1, 
                         help='K-th fold cross validation')
-    parser.add_argument('--max_k_split', nargs='?', type=int, default=0, 
+    parser.add_argument('--max_k_split', nargs='?', type=int, default=10, 
                         help='Total K fold cross validation')
 
     parser.add_argument('--pred_thr', nargs='?', type=float, default=0.5,

@@ -51,7 +51,7 @@ def train(args):
     model = get_model(args.arch, n_classes, version=args.dataset, f_scale=args.feature_scale)
     model.cuda()
 
-    vgg19_model = torchvision.models.vgg19(pretrained=True).cuda() # for topology-aware loss
+    vgg19_model = torchvision.models.vgg19(pretrained=True).cuda() # pretrained VGG19 for topology-aware loss
     vgg19_conv1_2 = nn.Sequential(*list(vgg19_model.features.children())[:3])
     vgg19_conv2_2 = nn.Sequential(*list(vgg19_model.features.children())[:8])
     vgg19_conv3_4 = nn.Sequential(*list(vgg19_model.features.children())[:17])
@@ -110,7 +110,7 @@ def train(args):
         start_train_time = timeit.default_timer()
 
         if args.num_cycles > 0:
-            scheduler.step(epoch % (args.n_epoch // args.num_cycles))
+            scheduler.step(epoch % (args.n_epoch // args.num_cycles)) # Cosine Annealing with Restarts
         else:
             scheduler.step(epoch)
 
@@ -126,6 +126,7 @@ def train(args):
 
             loss_seg = loss_fn(outputs, labels, lambda_ce=args.lambda_ce, lambda_lv=args.lambda_lv)
 
+            # Calculate topology-aware loss
             prob = F.softmax(outputs[0], dim=1)[:, 1, :, :]
 
             y_in = labels.unsqueeze(1).repeat(1, 3, 1, 1).float()
@@ -165,7 +166,7 @@ def train(args):
 
                 pred = outputs_val.max(1)[1]
 
-                loss_offset_val = args.lambda_offset * offsets.abs().mean()
+                loss_offset_val = args.lambda_offset * offsets.abs().mean() # GUM grid offsets
                 mean_loss_offset_val.update(loss_offset_val)
 
                 pred = pred.cpu().numpy()
@@ -209,13 +210,13 @@ def train(args):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Hyperparams')
-    parser.add_argument('--arch', nargs='?', type=str, default='fcn8s', 
+    parser.add_argument('--arch', nargs='?', type=str, default='pspnet', 
                         help='Architecture to use [\'fcn8s, unet, segnet, pspnet, icnet, etc\']')
-    parser.add_argument('--dataset', nargs='?', type=str, default='pascal', 
+    parser.add_argument('--dataset', nargs='?', type=str, default='tgs', 
                         help='Dataset to use [\'pascal, camvid, ade20k, cityscapes, etc\']')
-    parser.add_argument('--img_rows', nargs='?', type=int, default=256, 
+    parser.add_argument('--img_rows', nargs='?', type=int, default=101, 
                         help='Height of the input image')
-    parser.add_argument('--img_cols', nargs='?', type=int, default=256, 
+    parser.add_argument('--img_cols', nargs='?', type=int, default=101, 
                         help='Width of the input image')
 
     parser.add_argument('--img_norm', dest='img_norm', action='store_true', 
@@ -226,7 +227,7 @@ if __name__ == '__main__':
 
     parser.add_argument('--n_epoch', nargs='?', type=int, default=200, 
                         help='# of the epochs')
-    parser.add_argument('--batch_size', nargs='?', type=int, default=1, 
+    parser.add_argument('--batch_size', nargs='?', type=int, default=40, 
                         help='Batch Size')
     parser.add_argument('--l_rate', nargs='?', type=float, default=1e-3, 
                         help='Learning Rate')
@@ -239,9 +240,9 @@ if __name__ == '__main__':
     parser.add_argument('--resume', nargs='?', type=str, default=None,    
                         help='Path to previous saved model to restart from')
 
-    parser.add_argument('--seed', nargs='?', type=int, default=0, 
+    parser.add_argument('--seed', nargs='?', type=int, default=1234, 
                         help='Random seed')
-    parser.add_argument('--r_pad', nargs='?', type=int, default=0, 
+    parser.add_argument('--r_pad', nargs='?', type=int, default=14, 
                         help='Reflective center image padding')
     parser.add_argument('--num_cycles', nargs='?', type=int, default=0, 
                         help='Cosine Annealing Cyclic LR')
@@ -254,9 +255,9 @@ if __name__ == '__main__':
     parser.add_argument('--lambda_lv', nargs='?', type=float, default=1.0, 
                         help='Weight for lovasz softmax loss')
 
-    parser.add_argument('--num_k_split', nargs='?', type=int, default=0,
+    parser.add_argument('--num_k_split', nargs='?', type=int, default=1,
                         help='The K-th fold cross validation')
-    parser.add_argument('--max_k_split', nargs='?', type=int, default=0,
+    parser.add_argument('--max_k_split', nargs='?', type=int, default=10,
                         help='The total K fold cross validation')
 
     args = parser.parse_args()
