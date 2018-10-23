@@ -1,0 +1,7 @@
+torch==0.4.1
+torchvision==0.2.0
+numpy==1.14.0
+opencv-python==3.4.*
+tqdm==4.11.2
+pandas
+pydensecrf
