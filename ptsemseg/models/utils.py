@@ -160,7 +160,7 @@ class residualBlockPSP(nn.Module):
         layers = []
         layers.append(bottleNeckPSP(in_channels, mid_channels, out_channels, stride, dilation=dilation, groups=groups, is_batchnorm=is_batchnorm))
         for i in range(n_blocks-1):
-            layers.append(bottleNeckIdentifyPSP(out_channels, mid_channels, stride, dilation=dilation, groups=groups, is_batchnorm=is_batchnormn))
+            layers.append(bottleNeckIdentifyPSP(out_channels, mid_channels, stride, dilation=dilation, groups=groups, is_batchnorm=is_batchnorm))
 
         self.layers = nn.Sequential(*layers)
 
